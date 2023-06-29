@@ -540,7 +540,7 @@ int main(int argc, char **argv)
 	char errmsg[1024];
 
 	// Handle multiple queues
-	int num_queues = 20;
+	int num_queues = 2;
 	xsks.num = num_queues;
 
 	/* Global shutdown handler */
