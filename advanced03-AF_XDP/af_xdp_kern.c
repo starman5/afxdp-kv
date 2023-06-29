@@ -30,7 +30,7 @@ struct {
 // Header cursor to keep track of current parsing position
 struct hdr_cursor {
     void *pos;
-}
+};
 
 // Parse the Ethernet header and return the type of the next header
 static __always_inline int parse_ethhdr(struct hdr_cursor *nh,
@@ -44,7 +44,7 @@ static __always_inline int parse_ethhdr(struct hdr_cursor *nh,
         return -1;
     }
 
-    nh->pos += eth + 1;
+    nh->pos = eth + 1;
     *ethhdr = eth;
 
     return eth->h_proto;
@@ -81,7 +81,7 @@ static __always_inline int parse_iphdr(struct hdr_cursor *nh,
 }
 
 // Parse the IPV6 header and return the type of the next header
-static __always_inline int parse_ip6hdr(struct hdr_cursor *nh,
+static __always_inline int parse_ipv6hdr(struct hdr_cursor *nh,
                                         void *data_end,
                                         struct ipv6hdr **ipv6hdr)
 {
@@ -131,12 +131,9 @@ int xdp_sock_prog(struct xdp_md *ctx)
     void *data = (void*)(long)ctx->data;
     struct ethhdr *ethhdr;
     struct iphdr *iphdr;
-    struct ipv6hdr *ipvh6dr;
+    struct ipv6hdr *ipv6hdr;
     struct udphdr *udphdr;
     int dport;
-
-    // Default action is to pass up the stack
-    __u32 action = XDP_PASS;
 
     // These keep track of the next header type and iterator pointer
     struct hdr_cursor nh;
