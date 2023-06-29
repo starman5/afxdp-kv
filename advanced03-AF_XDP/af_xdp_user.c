@@ -608,7 +608,7 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	/* Allocate memory for NUM_FRAMES of the default XDP frame size */
+	/* Allocate memory for NUM_FRAMES of the default XDP frame size, for each queue */
 	packet_buffer_size = num_queues * NUM_FRAMES * FRAME_SIZE;
 	if (posix_memalign(&packet_buffer,
 			   getpagesize(), /* PAGE_SIZE aligned */
