@@ -619,6 +619,8 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
+	fprintf(stdout, "Allocated UMEM\n");
+
 	/* Initialize shared packet_buffer for umem usage */
 	umem = configure_xsk_umem(packet_buffer, packet_buffer_size);
 	if (umem == NULL) {
@@ -626,6 +628,8 @@ int main(int argc, char **argv)
 			strerror(errno));
 		exit(EXIT_FAILURE);
 	}
+
+	fprintf(stdout, "Configured UMEM\n");
 
 	/* Open and configure an AF_XDP (xsk) socket for each queue*/
 	for (int i = 0; i < xsks.num; ++i) {
