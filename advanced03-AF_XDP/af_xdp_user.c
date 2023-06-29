@@ -30,9 +30,9 @@
 #include "../common/common_user_bpf_xdp.h"
 #include "../common/common_libbpf.h"
 
-#define NUM_FRAMES         4096 / 2
-#define FRAME_SIZE         XSK_UMEM__DEFAULT_FRAME_SIZE
-#define RX_BATCH_SIZE      64
+#define NUM_FRAMES         4096 / 4
+#define FRAME_SIZE         XSK_UMEM__DEFAULT_FRAME_SIZE / 4
+#define RX_BATCH_SIZE      64 / 4
 #define INVALID_UMEM_FRAME UINT64_MAX
 #define MAX_AF_SOCKETS	2
 
