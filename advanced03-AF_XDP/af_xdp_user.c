@@ -34,7 +34,7 @@
 #define FRAME_SIZE         XSK_UMEM__DEFAULT_FRAME_SIZE
 #define RX_BATCH_SIZE      64
 #define INVALID_UMEM_FRAME UINT64_MAX
-#define MAX_AF_SOCKETS	20
+#define MAX_AF_SOCKETS	2
 
 static struct xdp_program *prog;
 int xsk_map_fd;
@@ -212,7 +212,7 @@ static struct xsk_socket_info *xsk_configure_socket(struct config *cfg,
 	}
 
 	/* Initialize umem frame allocation */
-	for (i = 0; i < NUM_FRAMES; i++)
+	for (i = 0; i < NUM_FRAMES * MAX_AF_SOCKETS; i++)
 		xsk_info->umem_frame_addr[i] = i * FRAME_SIZE;
 
 	xsk_info->umem_frame_free = NUM_FRAMES;
@@ -540,7 +540,7 @@ int main(int argc, char **argv)
 	char errmsg[1024];
 
 	// Handle multiple queues
-	int num_queues = 1;
+	int num_queues = MAX_AF_SOCKETS;
 	xsks.num = num_queues;
 
 	/* Global shutdown handler */
