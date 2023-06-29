@@ -11,7 +11,7 @@
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
 
-#define KV_PORT 8889
+#define KV_PORT 8890
 
 struct {
 	__uint(type, BPF_MAP_TYPE_XSKMAP);
@@ -168,10 +168,11 @@ int xdp_sock_prog(struct xdp_md *ctx)
 
     // At this point, we can get the dport from udphdr
     dport = bpf_ntohs(udphdr->dest);
-    if (dport != KV_PORT) {
-        return XDP_PASS;
-    }
+//    if (dport != KV_PORT) {
+//        return XDP_PASS;
+//    }
 
+    if (dport == KV_PORT) {
     int index = ctx->rx_queue_index;
     __u32 *pkt_count;
 
@@ -184,7 +185,10 @@ int xdp_sock_prog(struct xdp_md *ctx)
      * has an active AF_XDP socket bound to it. */
     if (bpf_map_lookup_elem(&xsks_map, &index))
         return bpf_redirect_map(&xsks_map, index, 0);
-
+    }
+    else {
+    return XDP_PASS;
+    }
     return XDP_PASS;
 }
 
