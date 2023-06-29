@@ -30,7 +30,7 @@
 #include "../common/common_user_bpf_xdp.h"
 #include "../common/common_libbpf.h"
 
-#define NUM_FRAMES         4096
+#define NUM_FRAMES         4096 / 2
 #define FRAME_SIZE         XSK_UMEM__DEFAULT_FRAME_SIZE
 #define RX_BATCH_SIZE      64
 #define INVALID_UMEM_FRAME UINT64_MAX
@@ -192,8 +192,8 @@ static struct xsk_socket_info *xsk_configure_socket(struct config *cfg,
 	
 	xsk_info->queue_id = queue_id;
 	xsk_info->umem = umem;
-	xsk_cfg.rx_size = XSK_RING_CONS__DEFAULT_NUM_DESCS / 4;
-	xsk_cfg.tx_size = XSK_RING_PROD__DEFAULT_NUM_DESCS / 4;
+	xsk_cfg.rx_size = XSK_RING_CONS__DEFAULT_NUM_DESCS;
+	xsk_cfg.tx_size = XSK_RING_PROD__DEFAULT_NUM_DESCS;
 	xsk_cfg.xdp_flags = cfg->xdp_flags;
 	xsk_cfg.bind_flags = cfg->xsk_bind_flags;
 	xsk_cfg.libbpf_flags = (custom_xsk) ? XSK_LIBBPF_FLAGS__INHIBIT_PROG_LOAD: 0;
