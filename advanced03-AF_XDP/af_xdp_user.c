@@ -184,9 +184,11 @@ static struct xsk_socket_info *xsk_configure_socket(struct config *cfg,
 	int ret;
 	uint32_t prog_id;
 
+	fprintf(stdout, "Before calloc\n");
 	xsk_info = calloc(1, sizeof(*xsk_info));
 	if (!xsk_info)
 		return NULL;
+	fprintf(stdout, "After calloc\n");
 	
 	xsk_info->queue_id = queue_id;
 	xsk_info->umem = umem;
@@ -212,9 +214,10 @@ static struct xsk_socket_info *xsk_configure_socket(struct config *cfg,
 	}
 
 	/* Initialize umem frame allocation */
-	for (i = 0; i < NUM_FRAMES * MAX_AF_SOCKETS; i++)
+	fprintf(stdout, "Before initializing UMEM\n");
+	for (i = 0; i < NUM_FRAMES; i++)
 		xsk_info->umem_frame_addr[i] = i * FRAME_SIZE;
-
+	fprintf(stdout, "After initializing UMEM\n");
 	xsk_info->umem_frame_free = NUM_FRAMES;
 
 	/* Stuff the receive path with buffers, we assume we have enough */
