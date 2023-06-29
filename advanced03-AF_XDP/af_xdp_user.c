@@ -34,6 +34,7 @@
 #define FRAME_SIZE         XSK_UMEM__DEFAULT_FRAME_SIZE
 #define RX_BATCH_SIZE      64
 #define INVALID_UMEM_FRAME UINT64_MAX
+#define MAX_AF_SOCKETS	20
 
 static struct xdp_program *prog;
 int xsk_map_fd;
@@ -68,6 +69,10 @@ struct xsk_socket_info {
 
 	struct stats_record stats;
 	struct stats_record prev_stats;
+};
+struct xsk_container {
+	struct xsk_socket_info *sockets[MAX_AF_SOCKETS];
+	int num;
 };
 
 static inline __u32 xsk_ring_prod__free(struct xsk_ring_prod *r)
@@ -168,7 +173,8 @@ static uint64_t xsk_umem_free_frames(struct xsk_socket_info *xsk)
 }
 
 static struct xsk_socket_info *xsk_configure_socket(struct config *cfg,
-						    struct xsk_umem_info *umem)
+						    						struct xsk_umem_info *umem,
+													int queue_id)
 {
 	struct xsk_socket_config xsk_cfg;
 	struct xsk_socket_info *xsk_info;
@@ -180,16 +186,17 @@ static struct xsk_socket_info *xsk_configure_socket(struct config *cfg,
 	xsk_info = calloc(1, sizeof(*xsk_info));
 	if (!xsk_info)
 		return NULL;
-
+	
+	xsk_info->queue_id = queue_id;
 	xsk_info->umem = umem;
 	xsk_cfg.rx_size = XSK_RING_CONS__DEFAULT_NUM_DESCS;
 	xsk_cfg.tx_size = XSK_RING_PROD__DEFAULT_NUM_DESCS;
 	xsk_cfg.xdp_flags = cfg->xdp_flags;
 	xsk_cfg.bind_flags = cfg->xsk_bind_flags;
 	xsk_cfg.libbpf_flags = (custom_xsk) ? XSK_LIBBPF_FLAGS__INHIBIT_PROG_LOAD: 0;
-	ret = xsk_socket__create(&xsk_info->xsk, cfg->ifname,
-				 cfg->xsk_if_queue, umem->umem, &xsk_info->rx,
-				 &xsk_info->tx, &xsk_cfg);
+	ret = xsk_socket__create_shared(&xsk_info->xsk, cfg->ifname,
+				 queue_id, umem->umem, &xsk_info->rx,
+				 &xsk_info->tx, &xsk_info->fq, &xsk_info->cq, &xsk_cfg);
 	if (ret)
 		goto error_exit;
 
@@ -392,22 +399,27 @@ static void handle_receive_packets(struct xsk_socket_info *xsk)
   }
 
 static void rx_and_process(struct config *cfg,
-			   struct xsk_socket_info *xsk_socket)
+			   struct xsk_container *xsks)
 {
-	struct pollfd fds[2];
-	int ret, nfds = 1;
+	struct pollfd fds[MAX_AF_SOCKETS] = { 0 };
+	int ret, nfds;
+	nfds = xsks->num;
 
-	memset(fds, 0, sizeof(fds));
-	fds[0].fd = xsk_socket__fd(xsk_socket->xsk);
-	fds[0].events = POLLIN;
-
+	for (int i = 0; i < nfds; ++i) {
+		struct xsk_socket_info *xsk_info = xsks->sockets[i];
+		fds[i].fd = xsk_socket__fd(xsk_info->xsk);
+		fds[i].events = POLLIN;
+	}
 	while(!global_exit) {
 		if (cfg->xsk_poll_mode) {
 			ret = poll(fds, nfds, -1);
 			if (ret <= 0 || ret > 1)
 				continue;
 		}
-		handle_receive_packets(xsk_socket);
+		for (int i = 0; i < nfds; ++i) {
+			struct xsk_socket_info *xsk_info = xsks->sockets[i];
+			handle_receive_packets(xsk_info);
+		}
 	}
 }
 
@@ -479,7 +491,8 @@ static void stats_print(struct stats_record *stats_rec,
 static void *stats_poll(void *arg)
 {
 	unsigned int interval = 2;
-	struct xsk_socket_info *xsk = arg;
+	struct xsk_container *xsks = arg;
+	struct xsk_socket_info *xsk = xsks->sockets[0];
 	static struct stats_record previous_stats = { 0 };
 
 	previous_stats.timestamp = gettime();
@@ -520,10 +533,14 @@ int main(int argc, char **argv)
 	DECLARE_LIBXDP_OPTS(xdp_program_opts, xdp_opts, 0);
 	struct rlimit rlim = {RLIM_INFINITY, RLIM_INFINITY};
 	struct xsk_umem_info *umem;
-	struct xsk_socket_info *xsk_socket;
+	struct xsk_container xsks;
 	pthread_t stats_poll_thread;
 	int err;
 	char errmsg[1024];
+
+	// Handle multiple queues
+	int num_queues = 20;
+	xsks.num = num_queues;
 
 	/* Global shutdown handler */
 	signal(SIGINT, exit_application);
@@ -592,7 +609,7 @@ int main(int argc, char **argv)
 	}
 
 	/* Allocate memory for NUM_FRAMES of the default XDP frame size */
-	packet_buffer_size = NUM_FRAMES * FRAME_SIZE;
+	packet_buffer_size = num_queues * NUM_FRAMES * FRAME_SIZE;
 	if (posix_memalign(&packet_buffer,
 			   getpagesize(), /* PAGE_SIZE aligned */
 			   packet_buffer_size)) {
@@ -609,18 +626,22 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	/* Open and configure the AF_XDP (xsk) socket */
-	xsk_socket = xsk_configure_socket(&cfg, umem);
-	if (xsk_socket == NULL) {
-		fprintf(stderr, "ERROR: Can't setup AF_XDP socket \"%s\"\n",
-			strerror(errno));
-		exit(EXIT_FAILURE);
+	/* Open and configure an AF_XDP (xsk) socket for each queue*/
+	for (int i = 0; i < xsks.num; ++i) {
+		struct xsk_socket_info *xski;
+		xski = xsk_configure_socket(&cfg, umem, i, xsks_map_fd);
+		if (xski == NULL) {
+			fprintf(stderr, "ERROR: Can't setup AF_XDP socket \"%s\"\n",
+				strerror(errno));
+			exit(EXIT_FAILURE);
+		}
+		xsks.sockets[i] = xski;
 	}
 
 	/* Start thread to do statistics display */
 	if (verbose) {
 		ret = pthread_create(&stats_poll_thread, NULL, stats_poll,
-				     xsk_socket);
+				     &xsks);
 		if (ret) {
 			fprintf(stderr, "ERROR: Failed creating statistics thread "
 				"\"%s\"\n", strerror(errno));
@@ -629,10 +650,12 @@ int main(int argc, char **argv)
 	}
 
 	/* Receive and count packets than drop them */
-	rx_and_process(&cfg, xsk_socket);
+	rx_and_process(&cfg, &xsks);
 
 	/* Cleanup */
-	xsk_socket__delete(xsk_socket->xsk);
+	for (int i = 0; i < xsks.num; ++i) {
+		xsk_socket__delete(xsks.sockets[i]->xsk);
+	}
 	xsk_umem__delete(umem->umem);
 
 	return EXIT_OK;
