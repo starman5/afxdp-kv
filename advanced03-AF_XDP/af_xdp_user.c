@@ -34,7 +34,7 @@
 #define FRAME_SIZE         XSK_UMEM__DEFAULT_FRAME_SIZE
 #define RX_BATCH_SIZE      64
 #define INVALID_UMEM_FRAME UINT64_MAX
-#define MAX_AF_SOCKETS	1
+#define MAX_AF_SOCKETS	2
 
 static struct xdp_program *prog;
 int xsk_map_fd;
@@ -192,8 +192,8 @@ static struct xsk_socket_info *xsk_configure_socket(struct config *cfg,
 	
 	xsk_info->queue_id = queue_id;
 	xsk_info->umem = umem;
-	xsk_cfg.rx_size = XSK_RING_CONS__DEFAULT_NUM_DESCS;
-	xsk_cfg.tx_size = XSK_RING_PROD__DEFAULT_NUM_DESCS;
+	xsk_cfg.rx_size = XSK_RING_CONS__DEFAULT_NUM_DESCS / 4;
+	xsk_cfg.tx_size = XSK_RING_PROD__DEFAULT_NUM_DESCS / 4;
 	xsk_cfg.xdp_flags = cfg->xdp_flags;
 	xsk_cfg.bind_flags = cfg->xsk_bind_flags;
 	xsk_cfg.libbpf_flags = (custom_xsk) ? XSK_LIBBPF_FLAGS__INHIBIT_PROG_LOAD: 0;
