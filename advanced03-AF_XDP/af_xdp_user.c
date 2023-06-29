@@ -66,6 +66,7 @@ struct xsk_socket_info {
 	uint32_t umem_frame_free;
 
 	uint32_t outstanding_tx;
+	int queue_id;
 
 	struct stats_record stats;
 	struct stats_record prev_stats;
@@ -196,7 +197,7 @@ static struct xsk_socket_info *xsk_configure_socket(struct config *cfg,
 	xsk_cfg.libbpf_flags = (custom_xsk) ? XSK_LIBBPF_FLAGS__INHIBIT_PROG_LOAD: 0;
 	ret = xsk_socket__create_shared(&xsk_info->xsk, cfg->ifname,
 				 queue_id, umem->umem, &xsk_info->rx,
-				 &xsk_info->tx, &xsk_info->fq, &xsk_info->cq, &xsk_cfg);
+				 &xsk_info->tx, umem->fq, umem->cq, &xsk_cfg);
 	if (ret)
 		goto error_exit;
 
@@ -629,7 +630,7 @@ int main(int argc, char **argv)
 	/* Open and configure an AF_XDP (xsk) socket for each queue*/
 	for (int i = 0; i < xsks.num; ++i) {
 		struct xsk_socket_info *xski;
-		xski = xsk_configure_socket(&cfg, umem, i, xsks_map_fd);
+		xski = xsk_configure_socket(&cfg, umem, i);
 		if (xski == NULL) {
 			fprintf(stderr, "ERROR: Can't setup AF_XDP socket \"%s\"\n",
 				strerror(errno));
