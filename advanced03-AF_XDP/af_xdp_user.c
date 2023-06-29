@@ -197,7 +197,7 @@ static struct xsk_socket_info *xsk_configure_socket(struct config *cfg,
 	xsk_cfg.libbpf_flags = (custom_xsk) ? XSK_LIBBPF_FLAGS__INHIBIT_PROG_LOAD: 0;
 	ret = xsk_socket__create_shared(&xsk_info->xsk, cfg->ifname,
 				 queue_id, umem->umem, &xsk_info->rx,
-				 &xsk_info->tx, umem->fq, umem->cq, &xsk_cfg);
+				 &xsk_info->tx, &umem->fq, &umem->cq, &xsk_cfg);
 	if (ret)
 		goto error_exit;
 
