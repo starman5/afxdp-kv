@@ -642,7 +642,7 @@ int main(int argc, char **argv)
 				strerror(errno));
 			exit(EXIT_FAILURE);
 		}
-		xsks.sockets[sockidx]] = xski;
+		xsks.sockets[sockidx] = xski;
 	}
 
 	/* Start thread to do statistics display */
