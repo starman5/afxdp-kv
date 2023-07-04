@@ -135,8 +135,8 @@ static struct xsk_umem_info *configure_xsk_umem(void *buffer, uint64_t size)
 	struct xsk_umem_info *umem;
 	int ret;
 
-	//umem = calloc(1, sizeof(*umem));
-	umem = calloc(1, sizeof(xsk_umem_info));
+	umem = calloc(1, sizeof(*umem));
+	//umem = calloc(1, sizeof(struct xsk_umem_info));
 	if (!umem)
 		return NULL;
 
@@ -612,7 +612,7 @@ int main(int argc, char **argv)
 	}
 
 	/* Allocate memory for NUM_FRAMES of the default XDP frame size */
-	packet_buffer_size = num_queues * NUM_FRAMES * FRAME_SIZE;
+	packet_buffer_size = NUM_FRAMES * FRAME_SIZE;
 	if (posix_memalign(&packet_buffer,
 			   getpagesize(), /* PAGE_SIZE aligned */
 			   packet_buffer_size)) {
@@ -642,7 +642,7 @@ int main(int argc, char **argv)
 				strerror(errno));
 			exit(EXIT_FAILURE);
 		}
-		xsks.sockets[i] = xski;
+		xsks.sockets[sockidx]] = xski;
 	}
 
 	/* Start thread to do statistics display */
