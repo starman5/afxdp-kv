@@ -5,7 +5,6 @@
 #include <getopt.h>
 #include <libgen.h>
 #include <linux/bpf.h>
-#include <linux/err.h>
 #include <linux/if_link.h>
 #include <linux/if_xdp.h>
 #include <linux/if_ether.h>
