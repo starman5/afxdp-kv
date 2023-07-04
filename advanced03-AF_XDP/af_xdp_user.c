@@ -30,9 +30,9 @@
 #include "../common/common_user_bpf_xdp.h"
 #include "../common/common_libbpf.h"
 
-#define NUM_FRAMES         4096 / 4
-#define FRAME_SIZE         XSK_UMEM__DEFAULT_FRAME_SIZE / 4
-#define RX_BATCH_SIZE      64 / 4
+#define NUM_FRAMES         4096
+#define FRAME_SIZE         XSK_UMEM__DEFAULT_FRAME_SIZE
+#define RX_BATCH_SIZE      64
 #define INVALID_UMEM_FRAME UINT64_MAX
 #define MAX_AF_SOCKETS	2
 
@@ -135,7 +135,8 @@ static struct xsk_umem_info *configure_xsk_umem(void *buffer, uint64_t size)
 	struct xsk_umem_info *umem;
 	int ret;
 
-	umem = calloc(1, sizeof(*umem));
+	//umem = calloc(1, sizeof(*umem));
+	umem = calloc(1, sizeof(xsk_umem_info));
 	if (!umem)
 		return NULL;
 
@@ -174,8 +175,7 @@ static uint64_t xsk_umem_free_frames(struct xsk_socket_info *xsk)
 }
 
 static struct xsk_socket_info *xsk_configure_socket(struct config *cfg,
-						    						struct xsk_umem_info *umem,
-													int queue_id)
+						    						struct xsk_umem_info *umem)
 {
 	struct xsk_socket_config xsk_cfg;
 	struct xsk_socket_info *xsk_info;
@@ -190,16 +190,15 @@ static struct xsk_socket_info *xsk_configure_socket(struct config *cfg,
 		return NULL;
 	fprintf(stdout, "After calloc\n");
 	
-	xsk_info->queue_id = queue_id;
 	xsk_info->umem = umem;
 	xsk_cfg.rx_size = XSK_RING_CONS__DEFAULT_NUM_DESCS;
 	xsk_cfg.tx_size = XSK_RING_PROD__DEFAULT_NUM_DESCS;
 	xsk_cfg.xdp_flags = cfg->xdp_flags;
 	xsk_cfg.bind_flags = cfg->xsk_bind_flags;
 	xsk_cfg.libbpf_flags = (custom_xsk) ? XSK_LIBBPF_FLAGS__INHIBIT_PROG_LOAD: 0;
-	ret = xsk_socket__create_shared(&xsk_info->xsk, cfg->ifname,
-				 queue_id, umem->umem, &xsk_info->rx,
-				 &xsk_info->tx, &umem->fq, &umem->cq, &xsk_cfg);
+	ret = xsk_socket__create(&xsk_info->xsk, cfg->ifname,
+				 cfg->xsk_if_queue, umem->umem, &xsk_info->rx,
+				 &xsk_info->tx, &xsk_cfg);
 	if (ret)
 		goto error_exit;
 
@@ -543,8 +542,8 @@ int main(int argc, char **argv)
 	char errmsg[1024];
 
 	// Handle multiple queues
-	int num_queues = MAX_AF_SOCKETS;
-	xsks.num = num_queues;
+	int num_sockets = MAX_AF_SOCKETS;
+	xsks.num = num_sockets;
 
 	/* Global shutdown handler */
 	signal(SIGINT, exit_application);
@@ -612,7 +611,7 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	/* Allocate memory for NUM_FRAMES of the default XDP frame size, for each queue */
+	/* Allocate memory for NUM_FRAMES of the default XDP frame size */
 	packet_buffer_size = num_queues * NUM_FRAMES * FRAME_SIZE;
 	if (posix_memalign(&packet_buffer,
 			   getpagesize(), /* PAGE_SIZE aligned */
@@ -634,10 +633,10 @@ int main(int argc, char **argv)
 
 	fprintf(stdout, "Configured UMEM\n");
 
-	/* Open and configure an AF_XDP (xsk) socket for each queue*/
-	for (int i = 0; i < xsks.num; ++i) {
+	/* Open and configure AF_XDP (xsk) sockets */
+	for (int sockidx = 0; sockidx < xsks.num; ++sockidx) {
 		struct xsk_socket_info *xski;
-		xski = xsk_configure_socket(&cfg, umem, i);
+		xski = xsk_configure_socket(&cfg, umem);
 		if (xski == NULL) {
 			fprintf(stderr, "ERROR: Can't setup AF_XDP socket \"%s\"\n",
 				strerror(errno));
